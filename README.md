@@ -89,19 +89,19 @@ The following values are hardcoded near the beginning of the script. Review and 
 
 | Setting | Default Value | Description |
 |---|---|---|
-| Starting Galaxy Account Number | `1000` | Initial account number displayed in the GUI. |
-| Nickname | `fb*` | Default nickname or prefix used during account creation. |
+| Starting Galaxy Account Number | `1` | Initial account number displayed in the GUI. |
+| Nickname | `NickName` | Default nickname or prefix used during account creation. |
 | Privilege (Down Keys) | `1` | Number of downward key presses used to select a privilege option. |
 | Existing-Account Check | `false` | Determines whether the existing-account/password-reset workflow is enabled by default. |
-| Default Password | Not published | Password configured in the source for standard account creation. |
-| Reset Password | Not published | Password configured in the source for the password-reset workflow. |
-| Logins After Expiration | `3` | Value entered into the corresponding Galaxy field during account creation. |
+| Default Password | NormalPassword11! | Password configured in the source for standard account creation. |
+| Reset Password | ResetPassword11! | Password configured in the source for the password-reset workflow. |
+| Logins After Expiration | `1` | Value entered into the corresponding Galaxy field during account creation. |
 | Account Expiration | `true` | Enables account expiration by default. |
-| Expiration Month | `11` | Default expiration month. |
-| Expiration Day | `2` | Default expiration day. |
+| Expiration Month | `12` | Default expiration month. |
+| Expiration Day | `31` | Default expiration day. |
 | Expiration Year | `26` | Default expiration year, interpreted as 2026 during validation. |
 | Username X Coordinate | `500` | Horizontal screen coordinate used for mouse positioning. |
-| Username Y Coordinate | `300` | Vertical screen coordinate used for mouse positioning. |
+| Username Y Coordinate | `500` | Vertical screen coordinate used for mouse positioning. |
 | Automatic Mouse Positioning | `true` | Enables automatic cursor positioning and a shorter handoff delay. |
 
 ### Important Configuration Notes
