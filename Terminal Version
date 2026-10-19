@@ -1,0 +1,184 @@
+# --- 1. STARTUP CONFIGURATION (POP-UP INPUTS TO PREVENT PASTE ERRORS) ---
+Add-Type -AssemblyName Microsoft.VisualBasic
+Add-Type -AssemblyName System.Windows.Forms
+Write-Host "--- GALAXY ACCELERATED CREATOR ---" -ForegroundColor Cyan
+# 1. Starting Galaxy ID
+$inputID = [Microsoft.VisualBasic.Interaction]::InputBox("What is the starting Galaxy Account Number for today?", "Galaxy Setup", "1000")
+if ([string]::IsNullOrWhiteSpace($inputID)) { $inputID = "1000" }
+$currentAccountNum = [int]$inputID
+# 2. Check if Account Exists Mode
+$checkMsg = [System.Windows.Forms.MessageBox]::Show("Enable 'Check if Account Exists / Password Reset' feature?", "Galaxy Mode Selection", [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question)
+$checkIfExistsMode = if ($checkMsg -eq [System.Windows.Forms.DialogResult]::Yes) { $true } else { $false }
+$checkStatusText = if ($checkIfExistsMode) { "ENABLED" } else { "DISABLED" }
+Write-Host "Check Feature: $checkStatusText" -ForegroundColor Cyan
+
+# Default script settings
+$nickname = "NickName"
+$downKeyCount = 1
+Write-Host "Nickname: $nickname (default)" -ForegroundColor DarkGray
+Write-Host "Down Key Count: $downKeyCount (default)" -ForegroundColor DarkGray
+# Passwords
+$defaultPassword = "NormalPassword11!"
+$resetPassword = "ResetPassword11!"
+# Expiration Date Settings
+$expireAccount = $true  # change to $false to not allow this
+$expireMonth = "12"
+$expireDay = "31"
+$expireYear = "26"
+
+# --- 2. MAIN AUTOMATION LOOP ---
+while ($true) {
+	Write-Host "`nNext Galaxy ID: $currentAccountNum" -ForegroundColor Yellow
+	Write-Host "Type 'CHANGE' at Employee ID to update settings" -ForegroundColor DarkGray
+	$employeeID = Read-Host "Enter Employee ID"
+	# --- CHANGE SETTINGS ---
+	if ($employeeID -eq "CHANGE") {
+    	Write-Host ""
+    	Write-Host "CHANGE SETTINGS" -ForegroundColor Cyan
+    	Write-Host ""
+    	Write-Host "Current Settings:" -ForegroundColor Yellow
+    	Write-Host "Nickname: $nickname"
+    	Write-Host "Galaxy ID: $currentAccountNum"
+    	Write-Host "Down Key Count: $downKeyCount"
+    	Write-Host "Check Existing Account: $checkIfExistsMode"
+    	Write-Host ""
+    	Write-Host "1 - Nickname"
+    	Write-Host "2 - Galaxy ID"
+    	Write-Host "3 - Down Key Count"
+    	Write-Host "4 - Toggle 'Check If Account Exists' (Y/N)"
+    	Write-Host "0 - Change Everything"
+    	Write-Host ""
+    	$choice = Read-Host "Selection"
+    	switch ($choice) {
+        	"1" {
+            	$nickname = Read-Host "Enter NEW Nickname"
+            	if ([string]::IsNullOrWhiteSpace($nickname)) { $nickname = "fb*" }
+        	}
+        	"2" {
+            	$currentAccountNum = [int](Read-Host "Enter NEW Galaxy ID")
+        	}
+        	"3" {
+            	$downKeyCount = [int](Read-Host "Enter NEW DOWN Key Count")
+        	}
+        	"4" {
+            	$toggleCheck = Read-Host "Enable 'Check if Account Exists' feature? (Y/N)"
+            	$checkIfExistsMode = if ($toggleCheck -match "^[Yy]") { $true } else { $false }
+        	}
+        	"0" {
+            	$nickname = Read-Host "Enter NEW Nickname"
+            	if ([string]::IsNullOrWhiteSpace($nickname)) { $nickname = "fb*" }
+            	$currentAccountNum = [int](Read-Host "Enter NEW Galaxy ID")
+            	$downKeyCount = [int](Read-Host "Enter NEW DOWN Key Count")
+            	$toggleCheck = Read-Host "Enable 'Check if Account Exists' feature? (Y/N)"
+            	$checkIfExistsMode = if ($toggleCheck -match "^[Yy]") { $true } else { $false }
+        	}
+        	default {
+            	Write-Host "Invalid selection." -ForegroundColor Red
+            	Start-Sleep -Seconds 1
+        	}
+    	}
+    	continue
+	}
+	$fullName = Read-Host "Enter First and Last Name"
+	Write-Host "`nClick onto USERNAME in Galaxy window now…(3 second timer)" -ForegroundColor Yellow
+	Start-Sleep -Seconds 3
+	$wshell = New-Object -ComObject Wscript.Shell
+	$accountExists = "N"
+	if ($checkIfExistsMode) {
+    	$wshell.SendKeys($employeeID)
+    	Start-Sleep -Milliseconds 200
+    	$wshell.SendKeys("{ENTER}")
+    	Write-Host ""
+    	$accountExists = Read-Host "Does this account already exist? (Y/N)"
+	}
+  #password reset automation
+	if ($checkIfExistsMode -and ($accountExists -match "^[Yy]")) {
+    	Write-Host "Resuming Password Reset sequence... CLICK ON ACCOUNT (2s)" -ForegroundColor Yellow
+    	Start-Sleep -Seconds 2
+    	$wshell.SendKeys("{ENTER}")
+    	Start-Sleep -Milliseconds 200
+    	for ($i = 1; $i -le 3; $i++) { $wshell.SendKeys("{TAB}") } 
+    	Start-Sleep -Milliseconds 200
+    	$wshell.SendKeys("{DOWN}")
+    	Start-Sleep -Milliseconds 200
+    	$wshell.SendKeys("{TAB}")
+    	Start-Sleep -Milliseconds 200
+    	$wshell.SendKeys("{ }")
+    	Start-Sleep -Milliseconds 200
+    	$wshell.SendKeys("{TAB}")
+    	Start-Sleep -Milliseconds 200
+    	$wshell.SendKeys($resetPassword)
+    	Start-Sleep -Milliseconds 200
+  for ($i = 1; $i -le 18; $i++) { $wshell.SendKeys("{TAB}") }
+  Start-Sleep -Milliseconds 50
+  $currentAccountNum--
+
+	} 
+  #account creation automation 
+	else {
+    	# --- FIXED: Alt+N now properly triggers if check mode is enabled but user answers 'No' ---
+    	if ($checkIfExistsMode) {
+        	Write-Host "Resuming standard creation flow... click back into Galaxy if needed (2s)" -ForegroundColor Yellow
+        	Start-Sleep -Seconds 2
+        	$wshell.SendKeys("%n")
+        	Start-Sleep -Milliseconds 400
+        	$wshell.SendKeys($employeeID)
+        	Start-Sleep -Milliseconds 200
+        	$wshell.SendKeys("{TAB}{ENTER}")
+    	} else {
+        	$wshell.SendKeys("%n")
+        	Start-Sleep -Milliseconds 400
+        	$wshell.SendKeys($employeeID)
+        	Start-Sleep -Milliseconds 200
+        	$wshell.SendKeys("{TAB}{ENTER}")
+    	}
+    	Start-Sleep -Milliseconds 500
+    	for ($i = 1; $i -le $downKeyCount; $i++) {
+        	$wshell.SendKeys("{DOWN}")
+        	Start-Sleep -Milliseconds 50
+    	}
+    	$wshell.SendKeys("{ENTER}")
+    	Start-Sleep -Milliseconds 200
+    	$wshell.SendKeys("{TAB}")
+    	$wshell.SendKeys($currentAccountNum)
+    	Start-Sleep -Milliseconds 200
+    	$wshell.SendKeys("{TAB}{TAB}")
+    	$wshell.SendKeys($fullName)
+    	Start-Sleep -Milliseconds 200
+    	$wshell.SendKeys("{TAB}")
+    	$wshell.SendKeys($nickname)
+    	Start-Sleep -Milliseconds 200
+    	for ($i = 1; $i -le 7; $i++) { $wshell.SendKeys("{TAB}") }
+    	$wshell.SendKeys("{ENTER}")
+    	Start-Sleep -Milliseconds 600
+    	for ($i = 1; $i -le 12; $i++) { $wshell.SendKeys("{TAB}") }
+    	$wshell.SendKeys("{DOWN}{TAB}")
+    	Start-Sleep -Milliseconds 200
+    	$wshell.SendKeys($defaultPassword)
+    	Start-Sleep -Milliseconds 200
+	}
+	# --- EXPIRATION FIELD MAPPING ---
+	if (!$checkIfExistsMode -or $accountExists -notmatch "^[Yy]")
+{
+	for ($i = 1; $i -le 5; $i++) { $wshell.SendKeys("{TAB}") }
+	Start-Sleep -Milliseconds 200 
+	if ($expireAccount) {
+    	$wshell.SendKeys("{ }")
+    	$wshell.SendKeys("{TAB}")
+  Start-Sleep -Milliseconds 30
+    	if (![string]::IsNullOrWhiteSpace($expireMonth)) { $wshell.SendKeys($expireMonth) }
+  Start-Sleep -Milliseconds 30
+    	$wshell.SendKeys("{RIGHT}")
+  Start-Sleep -Milliseconds 30
+    	if (![string]::IsNullOrWhiteSpace($expireDay)) { $wshell.SendKeys($expireDay) }
+  Start-Sleep -Milliseconds 30
+    	$wshell.SendKeys("{RIGHT}")
+  Start-Sleep -Milliseconds 30
+    	if (![string]::IsNullOrWhiteSpace($expireYear)) { $wshell.SendKeys($expireYear) }
+  Start-Sleep -Milliseconds 30
+  for ($i = 1; $i -le 12; $i++) { $wshell.SendKeys("{TAB}") }
+	} 
+}
+	$currentAccountNum++
+}
+}
