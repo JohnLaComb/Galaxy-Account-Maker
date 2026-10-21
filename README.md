@@ -48,7 +48,6 @@ I developed this PowerShell automation tool to simplify the process through a gr
 - Windows operating system.
 - Windows PowerShell with support for Windows Forms and the Windows Script Host COM object.
 - Access to the Galaxy application.
-- Works even if Scripts are disabled by Windows manager
 
 ## Getting Started
 
