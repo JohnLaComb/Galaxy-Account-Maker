@@ -61,8 +61,7 @@ I developed this PowerShell automation tool to simplify the process through a gr
 6. Go to Windows Home screen and right click anywhere and click new and then shortcut
 7. Click browse and find the .ps1 file (it should be in document folder)
 8. Enter this at the start " powershell.exe -NoExit -File " (in front of C drive, also make sure there is one space in between)
-9. Open the shortcut and copy and paste this " Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned "
-10. Close and Re-open. It should be working now
+9. If the Short Cut doesn't work do the next option and ask your IT department if they can make it work
 
 ### 2. If you don't want a shortcut
 
