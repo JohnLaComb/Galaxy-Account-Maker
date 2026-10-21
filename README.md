@@ -6,7 +6,7 @@ A PowerShell-based Windows Forms GUI developed to automate account creation in G
 
 I identified an opportunity to improve the efficiency of creating accounts within Galaxy. The existing process required manually navigating the application and entering account information, typically taking 45–60 seconds per account, with it taking longer if mistakes are made.
 
-I developed this PowerShell automation tool to simplify the process through a graphical interface and automated keyboard and mouse interactions. This reduces human made errors to near 0.
+I developed this PowerShell automation tool to simplify the process through a graphical interface and automated keyboard and mouse interactions. This helps reduce manual data-entry errors.
 
 ## Results
 
@@ -60,8 +60,7 @@ I developed this PowerShell automation tool to simplify the process through a gr
 5. Save as type which is just under that to All files(*.*)
 6. Go to Windows Home screen and right click anywhere and click new and then shortcut
 7. Click browse and find the .ps1 file (it should be in document folder)
-8. Enter this at the start " powershell.exe -NoExit -File " (in front of C drive, also make sure there is one space in between)
-9. If the Short Cut doesn't work do the next option and ask your IT department if they can make it work
+8. Enter this at the start " powershell.exe -NoExit -ExecutionPolicy Bypass -File " (in front of C drive, also make sure there is one space in between)
 
 ### 2. If you don't want a shortcut
 
