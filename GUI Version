@@ -1,6 +1,6 @@
 # ============================================================
-# GALAXY ACCOUNT MANAGER
-# Windows Forms GUI for the existing Galaxy keyboard workflow
+# GALAXY ACCOUNT MANAGER (ENHANCED GUI)
+# Windows Forms GUI for the Galaxy account workflow
 # ============================================================
 
 Add-Type -AssemblyName System.Windows.Forms
@@ -19,11 +19,7 @@ $script:defaultPassword = "NormalPassword11!"
 $script:resetPassword = "ResetPassword11!"
 
 $script:loginsAfterExpire = "1"
-
 $script:expireAccount = $true
-$script:expireMonth = "12"
-$script:expireDay = "31"
-$script:expireYear = "26"
 
 # Username mouse coordinates
 $script:usernameX = 1400
@@ -32,11 +28,11 @@ $script:useMouseCoordinates = $true
 
 # -------------------- COLORS / GUI HELPERS ------------------
 
-$script:navy = [System.Drawing.Color]::FromArgb(23, 37, 84)
-$script:bg = [System.Drawing.Color]::FromArgb(245, 247, 251)
-$script:green = [System.Drawing.Color]::FromArgb(22, 101, 52)
-$script:muted = [System.Drawing.Color]::FromArgb(100, 116, 139)
-$script:ink = [System.Drawing.Color]::FromArgb(30, 41, 59)
+$script:navy   = [System.Drawing.Color]::FromArgb(23, 37, 84)
+$script:bg     = [System.Drawing.Color]::FromArgb(245, 247, 251)
+$script:green  = [System.Drawing.Color]::FromArgb(22, 101, 52)
+$script:muted  = [System.Drawing.Color]::FromArgb(100, 116, 139)
+$script:ink    = [System.Drawing.Color]::FromArgb(30, 41, 59)
 
 function New-Label {
     param(
@@ -55,7 +51,6 @@ function New-Label {
     $control.Size = New-Object System.Drawing.Size($Width, $Height)
     $control.Font = New-Object System.Drawing.Font("Segoe UI", $FontSize)
     $control.ForeColor = $Color
-
     return $control
 }
 
@@ -72,7 +67,6 @@ function New-TextBox {
     $control.Location = New-Object System.Drawing.Point($X, $Y)
     $control.Size = New-Object System.Drawing.Size($Width, 27)
     $control.Font = New-Object System.Drawing.Font("Segoe UI", 10)
-
     return $control
 }
 
@@ -91,23 +85,25 @@ function New-Button {
     $control.Size = New-Object System.Drawing.Size($Width, $Height)
     $control.Font = New-Object System.Drawing.Font("Segoe UI", 8)
     $control.FlatStyle = "Flat"
-
     return $control
 }
 
-# Keep Windows Forms responsive during delays.
+# Keep Windows Forms responsive during delays and monitor for ESC key abort.
 function Invoke-ResponsiveDelay {
     param([int]$Milliseconds)
 
     $timer = [System.Diagnostics.Stopwatch]::StartNew()
 
     while ($timer.ElapsedMilliseconds -lt $Milliseconds) {
+        if ([GalaxyMouse]::IsEscapePressed()) {
+            throw "Automation cancelled by user (Escape key pressed)."
+        }
         [System.Windows.Forms.Application]::DoEvents()
         Start-Sleep -Milliseconds 10
     }
 }
 
-# -------------------- MOUSE SUPPORT -------------------------
+# -------------------- MOUSE & SYSTEM SUPPORT ----------------
 
 if (-not ("GalaxyMouse" -as [type])) {
     Add-Type @"
@@ -128,15 +124,21 @@ public static class GalaxyMouse
         UIntPtr dwExtraInfo
     );
 
+    [DllImport("user32.dll")]
+    public static extern short GetAsyncKeyState(int vKey);
+
+    public static bool IsEscapePressed()
+    {
+        // 0x1B = VK_ESCAPE
+        return (GetAsyncKeyState(0x1B) & 0x8000) != 0;
+    }
+
     public static void Click(int x, int y)
     {
         if (!SetCursorPos(x, y))
-            throw new System.ComponentModel.Win32Exception(
-                Marshal.GetLastWin32Error()
-            );
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
 
         System.Threading.Thread.Sleep(150);
-
         mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
         mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
     }
@@ -145,34 +147,25 @@ public static class GalaxyMouse
 }
 
 function Invoke-GalaxyClick {
-    param(
-        [int]$X,
-        [int]$Y
-    )
-
+    param([int]$X, [int]$Y)
     [GalaxyMouse]::Click($X, $Y)
 }
 
 # -------------------- MAIN WINDOW ---------------------------
 
 $form = New-Object System.Windows.Forms.Form
-
 $form.Text = "Galaxy Account Manager"
-$form.Size = New-Object System.Drawing.Size(430, 900)
+$form.Size = New-Object System.Drawing.Size(430, 910)
 $form.MinimumSize = New-Object System.Drawing.Size(430, 600)
 $form.StartPosition = "Manual"
 $form.Location = New-Object System.Drawing.Point(20, 30)
 $form.BackColor = $script:bg
 $form.ForeColor = $script:ink
 $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
-
-# The window can be resized; the controls remain fixed in place.
 $form.FormBorderStyle = "Sizable"
 $form.MaximizeBox = $true
-
-# Allow scrolling if the window is made shorter.
 $form.AutoScroll = $true
-$form.AutoScrollMinSize = New-Object System.Drawing.Size(0, 900)
+$form.AutoScrollMinSize = New-Object System.Drawing.Size(0, 910)
 
 # -------------------- HEADER --------------------------------
 
@@ -180,27 +173,18 @@ $header = New-Object System.Windows.Forms.Panel
 $header.Location = New-Object System.Drawing.Point(0, 0)
 $header.Size = New-Object System.Drawing.Size(430, 91)
 $header.BackColor = $script:navy
-
 $form.Controls.Add($header)
 
-$headerTitle = New-Label "Galaxy Account Manager" 18 13 385 32 17 `
-    ([System.Drawing.Color]::White)
-
+$headerTitle = New-Label "Galaxy Account Manager" 18 13 385 32 17 ([System.Drawing.Color]::White)
 $headerTitle.Font = New-Object System.Drawing.Font("Segoe UI Semibold", 16)
-
 $header.Controls.Add($headerTitle)
 
-$headerSubtitle = New-Label "IT ACCOUNT AUTOMATION" 20 51 370 20 8 `
-    ([System.Drawing.Color]::FromArgb(191,219,254))
-
+$headerSubtitle = New-Label "IT ACCOUNT AUTOMATION (Press ESC to Abort)" 20 51 370 20 8 ([System.Drawing.Color]::FromArgb(191,219,254))
 $header.Controls.Add($headerSubtitle)
 
 # -------------------- ACCOUNT DETAILS ----------------------
 
-$form.Controls.Add(
-    (New-Label "ACCOUNT DETAILS" 20 105 350 22 9 $script:muted)
-)
-
+$form.Controls.Add((New-Label "ACCOUNT DETAILS" 20 105 350 22 9 $script:muted))
 $form.Controls.Add((New-Label "Employee ID" 20 132))
 
 $script:txtEmployeeID = New-TextBox "" 20 154 372
@@ -218,18 +202,13 @@ $form.Controls.Add($script:txtGalaxyID)
 
 # -------------------- AUTOMATION SETTINGS ------------------
 
-$form.Controls.Add(
-    (New-Label "AUTOMATION SETTINGS" 20 316 350 22 9 $script:muted)
-)
-
+$form.Controls.Add((New-Label "AUTOMATION SETTINGS" 20 316 350 22 9 $script:muted))
 $form.Controls.Add((New-Label "Nickname" 20 344 175 20 9 $script:ink))
 
 $script:txtNickname = New-TextBox $script:nickname 20 366 175
 $form.Controls.Add($script:txtNickname)
 
-$form.Controls.Add((
-    New-Label "Privilege (Down keys)" 218 344 174 20 9 $script:ink
-))
+$form.Controls.Add((New-Label "Privilege (Down keys)" 218 344 174 20 9 $script:ink))
 
 $script:txtDownKeys = New-TextBox ([string]$script:downKeyCount) 218 366 174
 $form.Controls.Add($script:txtDownKeys)
@@ -237,141 +216,113 @@ $form.Controls.Add($script:txtDownKeys)
 # -------------------- EXISTING ACCOUNT MODE ----------------
 
 $script:chkCheckExists = New-Object System.Windows.Forms.CheckBox
-
 $script:chkCheckExists.Text = "Check existing accounts / password reset"
 $script:chkCheckExists.Location = New-Object System.Drawing.Point(20, 414)
 $script:chkCheckExists.Size = New-Object System.Drawing.Size(370, 26)
 $script:chkCheckExists.Checked = $script:checkIfExistsMode
-
 $form.Controls.Add($script:chkCheckExists)
 
 # -------------------- EXPIRATION ---------------------------
 
 $script:chkExpiration = New-Object System.Windows.Forms.CheckBox
-
 $script:chkExpiration.Text = "Enable account expiration"
 $script:chkExpiration.Location = New-Object System.Drawing.Point(20, 448)
 $script:chkExpiration.Size = New-Object System.Drawing.Size(370, 25)
 $script:chkExpiration.Checked = $script:expireAccount
-
 $form.Controls.Add($script:chkExpiration)
 
-$form.Controls.Add(
-    (New-Label "Expiration date (month / day / year)" 20 480)
-)
+$form.Controls.Add((New-Label "Expiration date" 20 480))
 
-$script:txtMonth = New-TextBox $script:expireMonth 20 504 105
-$script:txtDay = New-TextBox $script:expireDay 142 504 105
-$script:txtYear = New-TextBox $script:expireYear 264 504 128
-
-$form.Controls.Add($script:txtMonth)
-$form.Controls.Add($script:txtDay)
-$form.Controls.Add($script:txtYear)
+$script:dtpExpiration = New-Object System.Windows.Forms.DateTimePicker
+$script:dtpExpiration.Location = New-Object System.Drawing.Point(20, 504)
+$script:dtpExpiration.Size = New-Object System.Drawing.Size(372, 27)
+$script:dtpExpiration.Format = [System.Windows.Forms.DateTimePickerFormat]::Short
+$script:dtpExpiration.Value = Get-Date -Year 2026 -Month 12 -Day 31
+$form.Controls.Add($script:dtpExpiration)
 
 $script:chkExpiration.Add_CheckedChanged({
-    $enabled = $script:chkExpiration.Checked
-
-    $script:txtMonth.Enabled = $enabled
-    $script:txtDay.Enabled = $enabled
-    $script:txtYear.Enabled = $enabled
+    $script:dtpExpiration.Enabled = $script:chkExpiration.Checked
 })
 
 # -------------------- MOUSE COORDINATES --------------------
 
 $coordinatePanel = New-Object System.Windows.Forms.Panel
-
 $coordinatePanel.Location = New-Object System.Drawing.Point(20, 550)
 $coordinatePanel.Size = New-Object System.Drawing.Size(372, 145)
 $coordinatePanel.BackColor = [System.Drawing.Color]::White
 $coordinatePanel.BorderStyle = "FixedSingle"
-
 $form.Controls.Add($coordinatePanel)
 
-$coordinatePanel.Controls.Add((
-    New-Label "MOUSE COORDINATES" 10 7 340 20 9 $script:muted
-))
+$coordinatePanel.Controls.Add((New-Label "MOUSE COORDINATES" 10 7 340 20 9 $script:muted))
 
 $script:chkUseMouse = New-Object System.Windows.Forms.CheckBox
-
 $script:chkUseMouse.Text = "Enable automatic mouse positioning"
 $script:chkUseMouse.Location = New-Object System.Drawing.Point(10, 29)
 $script:chkUseMouse.Size = New-Object System.Drawing.Size(345, 22)
 $script:chkUseMouse.Checked = $script:useMouseCoordinates
-
 $coordinatePanel.Controls.Add($script:chkUseMouse)
 
+$coordinatePanel.Controls.Add((New-Label "Username field" 10 57 110 20 9 $script:ink))
 
-
-$coordinatePanel.Controls.Add((
-    New-Label "Username field" 10 57 125 20 9 $script:ink
-))
-
-$coordinatePanel.Controls.Add((
-    New-Label "X" 140 57 18 20 8 $script:muted
-))
-
-$script:txtUsernameX = New-TextBox ([string]$script:usernameX) 157 54 65
+$coordinatePanel.Controls.Add((New-Label "X" 122 57 16 20 8 $script:muted))
+$script:txtUsernameX = New-TextBox ([string]$script:usernameX) 138 54 50
 $coordinatePanel.Controls.Add($script:txtUsernameX)
 
-$coordinatePanel.Controls.Add((
-    New-Label "Y" 229 57 18 20 8 $script:muted
-))
-
-$script:txtUsernameY = New-TextBox ([string]$script:usernameY) 246 54 65
+$coordinatePanel.Controls.Add((New-Label "Y" 192 57 16 20 8 $script:muted))
+$script:txtUsernameY = New-TextBox ([string]$script:usernameY) 208 54 50
 $coordinatePanel.Controls.Add($script:txtUsernameY)
 
-$script:btnTestUsername = New-Button "Test" 315 54 45 27
+$script:btnTestUsername = New-Button "Test" 264 54 44 27
 $coordinatePanel.Controls.Add($script:btnTestUsername)
 
-$script:btnTestUsername.Add_Click({
-    $x = 0
-    $y = 0
+$script:btnPickUsername = New-Button "Pick" 312 54 48 27
+$coordinatePanel.Controls.Add($script:btnPickUsername)
 
+$script:btnTestUsername.Add_Click({
+    $x = 0; $y = 0
     if (-not [int]::TryParse($script:txtUsernameX.Text, [ref]$x) -or
         -not [int]::TryParse($script:txtUsernameY.Text, [ref]$y)) {
-
-        [System.Windows.Forms.MessageBox]::Show(
-            "Enter valid integer coordinates.",
-            "Invalid coordinates"
-        ) | Out-Null
-
+        [System.Windows.Forms.MessageBox]::Show("Enter valid integer coordinates.", "Invalid coordinates") | Out-Null
         return
     }
-
     try {
         Invoke-GalaxyClick -X $x -Y $y
     }
     catch {
-        [System.Windows.Forms.MessageBox]::Show(
-            "Could not position the mouse: $($_.Exception.Message)",
-            "Mouse error"
-        ) | Out-Null
+        [System.Windows.Forms.MessageBox]::Show("Could not position the mouse: $($_.Exception.Message)", "Mouse error") | Out-Null
     }
+})
+
+$script:btnPickUsername.Add_Click({
+    [System.Windows.Forms.MessageBox]::Show(
+        "Hover your mouse over the Galaxy Username field, then press Enter or Space to lock in coordinates.",
+        "Pick Coordinates",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Information
+    ) | Out-Null
+
+    $point = [System.Windows.Forms.Cursor]::Position
+    $script:txtUsernameX.Text = [string]$point.X
+    $script:txtUsernameY.Text = [string]$point.Y
+    $script:lblStatus.Text = "Coordinates set: X=$($point.X), Y=$($point.Y)"
 })
 
 # -------------------- STATUS PANEL -------------------------
 
 $statusPanel = New-Object System.Windows.Forms.Panel
-
 $statusPanel.Location = New-Object System.Drawing.Point(20, 706)
 $statusPanel.Size = New-Object System.Drawing.Size(372, 65)
 $statusPanel.BackColor = [System.Drawing.Color]::White
 $statusPanel.BorderStyle = "FixedSingle"
-
 $form.Controls.Add($statusPanel)
 
-$statusPanel.Controls.Add((
-    New-Label "STATUS" 10 5 340 18 8 $script:muted
-))
-
+$statusPanel.Controls.Add((New-Label "STATUS" 10 5 340 18 8 $script:muted))
 $script:lblStatus = New-Label "Ready for employee input." 10 27 350 30 9 $script:ink
-
 $statusPanel.Controls.Add($script:lblStatus)
 
 # -------------------- RUN BUTTON ---------------------------
 
 $script:btnRun = New-Object System.Windows.Forms.Button
-
 $script:btnRun.Text = "RUN ACCOUNT AUTOMATION"
 $script:btnRun.Location = New-Object System.Drawing.Point(20, 782)
 $script:btnRun.Size = New-Object System.Drawing.Size(372, 40)
@@ -380,32 +331,29 @@ $script:btnRun.ForeColor = [System.Drawing.Color]::White
 $script:btnRun.FlatStyle = "Flat"
 $script:btnRun.FlatAppearance.BorderSize = 0
 $script:btnRun.Font = New-Object System.Drawing.Font("Segoe UI Semibold", 10)
-
 $form.Controls.Add($script:btnRun)
 
-# -------------------- AUTOMATION ---------------------------
+# Pressing Enter runs the automation
+$form.AcceptButton = $script:btnRun
+
+# -------------------- AUTOMATION LOGIC ---------------------
 
 $script:running = $false
 
 $script:btnRun.Add_Click({
 
-    if ($script:running) {
-        return
-    }
+    if ($script:running) { return }
 
     $employeeID = $script:txtEmployeeID.Text.Trim()
     $fullName = $script:txtFullName.Text.Trim()
 
-    if ([string]::IsNullOrWhiteSpace($employeeID) -or
-        [string]::IsNullOrWhiteSpace($fullName)) {
-
+    if ([string]::IsNullOrWhiteSpace($employeeID) -or [string]::IsNullOrWhiteSpace($fullName)) {
         [System.Windows.Forms.MessageBox]::Show(
             "Enter both the Employee ID and full name.",
             "Missing information",
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Warning
         ) | Out-Null
-
         return
     }
 
@@ -422,7 +370,6 @@ $script:btnRun.Add_Click({
             [System.Windows.Forms.MessageBoxButtons]::OK,
             [System.Windows.Forms.MessageBoxIcon]::Warning
         ) | Out-Null
-
         return
     }
 
@@ -430,7 +377,6 @@ $script:btnRun.Add_Click({
     $usernameY = 0
 
     if ($script:chkUseMouse.Checked) {
-
         if (-not [int]::TryParse($script:txtUsernameX.Text, [ref]$usernameX) -or
             -not [int]::TryParse($script:txtUsernameY.Text, [ref]$usernameY)) {
 
@@ -440,49 +386,6 @@ $script:btnRun.Add_Click({
                 [System.Windows.Forms.MessageBoxButtons]::OK,
                 [System.Windows.Forms.MessageBoxIcon]::Warning
             ) | Out-Null
-
-            return
-        }
-    }
-
-    # Validate expiration date.
-
-    if ($script:chkExpiration.Checked) {
-
-        $month = 0
-        $day = 0
-        $year = 0
-
-        if (-not [int]::TryParse($script:txtMonth.Text, [ref]$month) -or
-            -not [int]::TryParse($script:txtDay.Text, [ref]$day) -or
-            -not [int]::TryParse($script:txtYear.Text, [ref]$year) -or
-            $month -lt 1 -or $month -gt 12 -or
-            $day -lt 1 -or $day -gt 31) {
-
-            [System.Windows.Forms.MessageBox]::Show(
-                "Enter a valid expiration month, day, and year.",
-                "Invalid expiration date",
-                [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Warning
-            ) | Out-Null
-
-            return
-        }
-
-        # Interpret a two-digit year as 2000-2099 for validation.
-        $fullYear = if ($year -lt 100) { 2000 + $year } else { $year }
-
-        try {
-            [void](Get-Date -Year $fullYear -Month $month -Day $day)
-        }
-        catch {
-            [System.Windows.Forms.MessageBox]::Show(
-                "That expiration date does not exist.",
-                "Invalid expiration date",
-                [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Warning
-            ) | Out-Null
-
             return
         }
     }
@@ -497,9 +400,6 @@ $script:btnRun.Add_Click({
 
     $script:checkIfExistsMode = $script:chkCheckExists.Checked
     $script:expireAccount = $script:chkExpiration.Checked
-    $script:expireMonth = $script:txtMonth.Text
-    $script:expireDay = $script:txtDay.Text
-    $script:expireYear = $script:txtYear.Text
     $script:useMouseCoordinates = $script:chkUseMouse.Checked
 
     $script:usernameX = $usernameX
@@ -509,50 +409,36 @@ $script:btnRun.Add_Click({
     $script:btnRun.Enabled = $false
 
     try {
-
         $wshell = New-Object -ComObject WScript.Shell
 
-if ($script:useMouseCoordinates) {
-    $script:lblStatus.Text = "Switching to Galaxy. Starting in 0.5 seconds..."
-    Invoke-ResponsiveDelay 500
-}
-else {
-    $script:lblStatus.Text = "Switching to Galaxy. Starting in 2 seconds..."
-    Invoke-ResponsiveDelay 2000
-}
+        # Ensure Galaxy is in foreground
+        $null = $wshell.AppActivate("Galaxy")
 
         if ($script:useMouseCoordinates) {
-
+            $script:lblStatus.Text = "Switching to Galaxy. Starting in 0.5s..."
+            Invoke-ResponsiveDelay 500
             $script:lblStatus.Text = "Selecting username field..."
-
             Invoke-GalaxyClick -X $script:usernameX -Y $script:usernameY
-
             Invoke-ResponsiveDelay 250
+        }
+        else {
+            $script:lblStatus.Text = "Switching to Galaxy. Starting in 2s..."
+            Invoke-ResponsiveDelay 2000
         }
 
         $accountExists = "N"
 
         # ---------------- EXISTING ACCOUNT CHECK ------------
-
         if ($script:checkIfExistsMode) {
+            $wshell.SendKeys($employeeID)
 
-$wshell.SendKeys($employeeID)
+            if ($script:useMouseCoordinates) { Invoke-ResponsiveDelay 200 }
+            else { Invoke-ResponsiveDelay 2000 }
 
-if ($script:useMouseCoordinates) {
-    Invoke-ResponsiveDelay 200
-}
-else {
-    Invoke-ResponsiveDelay 2000
-}
+            $wshell.SendKeys("{ENTER}")
 
-$wshell.SendKeys("{ENTER}")
-
-if ($script:useMouseCoordinates) {
-    Invoke-ResponsiveDelay 500
-}
-else {
-    Invoke-ResponsiveDelay 2000
-}
+            if ($script:useMouseCoordinates) { Invoke-ResponsiveDelay 500 }
+            else { Invoke-ResponsiveDelay 2000 }
 
             $checkMsg = [System.Windows.Forms.MessageBox]::Show(
                 "Does the intended account exist in Galaxy? Select Yes only after verifying the displayed account.",
@@ -563,25 +449,20 @@ else {
 
             if ($checkMsg -eq [System.Windows.Forms.DialogResult]::Yes) {
                 $accountExists = "Y"
+                $null = $wshell.AppActivate("Galaxy")
             }
         }
 
         # -------- EXISTING ACCOUNT / PASSWORD RESET --------
-
-        if ($script:checkIfExistsMode -and
-            ($accountExists -match "^[Yy]")) {
+        if ($script:checkIfExistsMode -and ($accountExists -match "^[Yy]")) {
 
             $script:lblStatus.Text = "Password reset workflow running..."
-
             Invoke-ResponsiveDelay 500
 
             $wshell.SendKeys("{ENTER}")
             Invoke-ResponsiveDelay 200
 
-            for ($i = 1; $i -le 3; $i++) {
-                $wshell.SendKeys("{TAB}")
-            }
-
+            for ($i = 1; $i -le 3; $i++) { $wshell.SendKeys("{TAB}") }
             Invoke-ResponsiveDelay 200
 
             $wshell.SendKeys("{DOWN}")
@@ -599,24 +480,15 @@ else {
             $wshell.SendKeys($script:resetPassword)
             Invoke-ResponsiveDelay 200
 
-            for ($i = 1; $i -le 18; $i++) {
-                $wshell.SendKeys("{TAB}")
-            }
-
+            for ($i = 1; $i -le 18; $i++) { $wshell.SendKeys("{TAB}") }
             Invoke-ResponsiveDelay 50
 
-            $script:currentAccountNum--
+          $script:lblStatus.Text = "Reset sequence completed. Review Galaxy."
         }
-
         # -------- STANDARD ACCOUNT CREATION -----------------
-
         else {
-
             $script:lblStatus.Text = "Creating account..."
-
-            if ($script:checkIfExistsMode) {
-                Invoke-ResponsiveDelay 500
-            }
+            if ($script:checkIfExistsMode) { Invoke-ResponsiveDelay 500 }
 
             $wshell.SendKeys("%n")
             Invoke-ResponsiveDelay 400
@@ -647,105 +519,72 @@ else {
             $wshell.SendKeys($script:nickname)
             Invoke-ResponsiveDelay 200
 
-            for ($i = 1; $i -le 7; $i++) {
-                $wshell.SendKeys("{TAB}")
-            }
-
+            for ($i = 1; $i -le 7; $i++) { $wshell.SendKeys("{TAB}") }
             $wshell.SendKeys("{ENTER}")
             Invoke-ResponsiveDelay 600
 
-            for ($i = 1; $i -le 12; $i++) {
-                $wshell.SendKeys("{TAB}")
-            }
-
+            for ($i = 1; $i -le 12; $i++) { $wshell.SendKeys("{TAB}") }
             $wshell.SendKeys("{DOWN}{TAB}")
             Invoke-ResponsiveDelay 200
 
             $wshell.SendKeys($script:defaultPassword)
             Invoke-ResponsiveDelay 200
-        }
 
-        # -------- EXPIRATION FIELD MAPPING -----------------
-
-        if (!$script:checkIfExistsMode -or
-            $accountExists -notmatch "^[Yy]") {
-
-            for ($i = 1; $i -le 5; $i++) {
-                $wshell.SendKeys("{TAB}")
-            }
-
+            # Expiration date handling
+            for ($i = 1; $i -le 5; $i++) { $wshell.SendKeys("{TAB}") }
             Invoke-ResponsiveDelay 200
 
             if ($script:expireAccount) {
+                $expMonth = $script:dtpExpiration.Value.ToString("MM")
+                $expDay   = $script:dtpExpiration.Value.ToString("dd")
+                $expYear  = $script:dtpExpiration.Value.ToString("yy")
 
                 $wshell.SendKeys("{ }")
                 $wshell.SendKeys("{TAB}")
                 Invoke-ResponsiveDelay 30
 
-                if (![string]::IsNullOrWhiteSpace($script:expireMonth)) {
-                    $wshell.SendKeys($script:expireMonth)
-                }
-
+                $wshell.SendKeys($expMonth)
                 Invoke-ResponsiveDelay 30
 
                 $wshell.SendKeys("{RIGHT}")
                 Invoke-ResponsiveDelay 30
 
-                if (![string]::IsNullOrWhiteSpace($script:expireDay)) {
-                    $wshell.SendKeys($script:expireDay)
-                }
-
+                $wshell.SendKeys($expDay)
                 Invoke-ResponsiveDelay 30
 
                 $wshell.SendKeys("{RIGHT}")
                 Invoke-ResponsiveDelay 30
 
-                if (![string]::IsNullOrWhiteSpace($script:expireYear)) {
-                    $wshell.SendKeys($script:expireYear)
-                }
-		$wshell.SendKeys("{TAB}")
-		$wshell.SendKeys("{TAB}")
-		$wshell.SendKeys($script:loginsAfterExpire)
-
+                $wshell.SendKeys($expYear)
                 Invoke-ResponsiveDelay 30
 
-                for ($i = 1; $i -le 12; $i++) {
-                    $wshell.SendKeys("{TAB}")
-                }
+                $wshell.SendKeys("{TAB}{TAB}")
+                $wshell.SendKeys($script:loginsAfterExpire)
+                Invoke-ResponsiveDelay 30
+
+                for ($i = 1; $i -le 12; $i++) { $wshell.SendKeys("{TAB}") }
             }
-        }
 
-        $script:currentAccountNum++
+            $script:currentAccountNum++
+            $script:txtGalaxyID.Text = [string]$script:currentAccountNum
 
-        $script:txtGalaxyID.Text = [string]$script:currentAccountNum
-
-        if ($script:checkIfExistsMode -and
-            ($accountExists -match "^[Yy]")) {
-
-            $script:lblStatus.Text = "Reset sequence completed. Review Galaxy."
-        }
-        else {
             $script:lblStatus.Text = "Creation sequence completed. Verify the account in Galaxy."
         }
 
         $script:txtEmployeeID.Clear()
         $script:txtFullName.Clear()
+        $script:txtEmployeeID.Focus()
     }
-
     catch {
-
-        $script:lblStatus.Text = "Automation error. Check Galaxy before retrying."
-
+        $script:lblStatus.Text = "Automation halted. Check Galaxy."
         [System.Windows.Forms.MessageBox]::Show(
-            "An error interrupted the automation:`r`n$($_.Exception.Message)`r`n`r`nCheck Galaxy before retrying to avoid duplicate actions.",
-            "Automation Error",
+            "Automation stopped:`r`n$($_.Exception.Message)`r`n`r`nVerify Galaxy before retrying to avoid duplicate entries.",
+            "Automation Interrupted",
             [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
+            [System.Windows.Forms.MessageBoxIcon]::Warning
         ) | Out-Null
     }
-
     finally {
-
         $script:running = $false
         $script:btnRun.Enabled = $true
     }
@@ -754,4 +593,3 @@ else {
 # -------------------- START APPLICATION ---------------------
 
 [void]$form.ShowDialog()
-
