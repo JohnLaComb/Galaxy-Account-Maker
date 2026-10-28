@@ -1,0 +1,638 @@
+# ============================================================
+# GALAXY BATCH ACCOUNT MANAGER
+# Windows Forms GUI for bulk onboarding via CSV
+# ============================================================
+
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+[System.Windows.Forms.Application]::EnableVisualStyles()
+
+# -------------------- DEFAULT SETTINGS ----------------------
+
+$script:defaultGalaxyID = 1000
+$script:defaultNickname = "NickName"
+$script:defaultDownKeyCount = 1
+$script:defaultPassword = "NormalPassword11!"
+$script:loginsAfterExpire = "1"
+$script:expireAccount = $true
+
+# Mouse defaults
+$script:usernameX = 1400
+$script:usernameY = 260
+$script:useMouseCoordinates = $true
+
+# Batch state
+$script:csvRecords = @()
+$script:isRunning = $false
+$script:isPaused = $false
+$script:currentRowIndex = 0
+$script:auditLogPath = ""
+
+# Styling
+$script:navy  = [System.Drawing.Color]::FromArgb(23, 37, 84)
+$script:bg    = [System.Drawing.Color]::FromArgb(245, 247, 251)
+$script:green = [System.Drawing.Color]::FromArgb(22, 101, 52)
+$script:muted = [System.Drawing.Color]::FromArgb(100, 116, 139)
+$script:ink   = [System.Drawing.Color]::FromArgb(30, 41, 59)
+
+# -------------------- WIN32 HELPER --------------------------
+
+if (-not ("GalaxyBatchMouse" -as [type])) {
+    Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+
+public static class GalaxyBatchMouse
+{
+    [DllImport("user32.dll", SetLastError = true)]
+    public static extern bool SetCursorPos(int X, int Y);
+
+    [DllImport("user32.dll")]
+    public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+
+    [DllImport("user32.dll")]
+    public static extern short GetAsyncKeyState(int vKey);
+
+    public static bool IsEscapePressed()
+    {
+        return (GetAsyncKeyState(0x1B) & 0x8000) != 0;
+    }
+
+    public static void Click(int x, int y)
+    {
+        if (!SetCursorPos(x, y))
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+
+        System.Threading.Thread.Sleep(150);
+        mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
+        mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+    }
+}
+"@
+}
+
+# -------------------- HELPER FUNCTIONS ----------------------
+
+function New-BatchLabel {
+    param([string]$Text, [int]$X, [int]$Y, [int]$Width = 200, [int]$Height = 20, [int]$FontSize = 9, $Color = [System.Drawing.Color]::FromArgb(30,41,59))
+    $lbl = New-Object System.Windows.Forms.Label
+    $lbl.Text = $Text
+    $lbl.Location = New-Object System.Drawing.Point($X, $Y)
+    $lbl.Size = New-Object System.Drawing.Size($Width, $Height)
+    $lbl.Font = New-Object System.Drawing.Font("Segoe UI", $FontSize)
+    $lbl.ForeColor = $Color
+    return $lbl
+}
+
+function New-BatchTextBox {
+    param([string]$Text, [int]$X, [int]$Y, [int]$Width = 100)
+    $txt = New-Object System.Windows.Forms.TextBox
+    $txt.Text = $Text
+    $txt.Location = New-Object System.Drawing.Point($X, $Y)
+    $txt.Size = New-Object System.Drawing.Size($Width, 25)
+    $txt.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    return $txt
+}
+
+function New-BatchButton {
+    param([string]$Text, [int]$X, [int]$Y, [int]$Width = 80, [int]$Height = 27)
+    $btn = New-Object System.Windows.Forms.Button
+    $btn.Text = $Text
+    $btn.Location = New-Object System.Drawing.Point($X, $Y)
+    $btn.Size = New-Object System.Drawing.Size($Width, $Height)
+    $btn.Font = New-Object System.Drawing.Font("Segoe UI", 8)
+    $btn.FlatStyle = "Flat"
+    return $btn
+}
+
+function Invoke-PacedDelay {
+    param([int]$BaseMilliseconds, [double]$PacingMultiplier)
+    $totalWait = [int]($BaseMilliseconds * $PacingMultiplier)
+    $timer = [System.Diagnostics.Stopwatch]::StartNew()
+    while ($timer.ElapsedMilliseconds -lt $totalWait) {
+        if ([GalaxyBatchMouse]::IsEscapePressed()) {
+            throw "Batch halted by user (Escape key pressed)."
+        }
+        [System.Windows.Forms.Application]::DoEvents()
+        Start-Sleep -Milliseconds 10
+    }
+}
+
+# -------------------- MAIN WINDOW ---------------------------
+
+$form = New-Object System.Windows.Forms.Form
+$form.Text = "Galaxy Batch Account Manager"
+$form.Size = New-Object System.Drawing.Size(560, 890)
+$form.MinimumSize = New-Object System.Drawing.Size(560, 750)
+$form.StartPosition = "CenterScreen"
+$form.BackColor = $script:bg
+$form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+$form.AutoScroll = $true
+
+# -------------------- HEADER --------------------------------
+
+$header = New-Object System.Windows.Forms.Panel
+$header.Location = New-Object System.Drawing.Point(0, 0)
+$header.Size = New-Object System.Drawing.Size(560, 75)
+$header.BackColor = $script:navy
+$form.Controls.Add($header)
+
+$headerTitle = New-BatchLabel "Galaxy Batch Account Provisioner" 18 10 450 28 15 ([System.Drawing.Color]::White)
+$headerTitle.Font = New-Object System.Drawing.Font("Segoe UI Semibold", 14)
+$header.Controls.Add($headerTitle)
+
+$headerSubtitle = New-BatchLabel "BULK ONBOARDING AUTOMATION  •  Press ESC to Halt" 20 40 450 20 8 ([System.Drawing.Color]::FromArgb(191,219,254))
+$header.Controls.Add($headerSubtitle)
+
+# -------------------- 1. CSV DATA SOURCE --------------------
+
+$grpCsv = New-Object System.Windows.Forms.GroupBox
+$grpCsv.Text = "1. CSV Data Source"
+$grpCsv.Location = New-Object System.Drawing.Point(18, 85)
+$grpCsv.Size = New-Object System.Drawing.Size(508, 90)
+$form.Controls.Add($grpCsv)
+
+$script:txtCsvPath = New-BatchTextBox "" 15 26 380
+$grpCsv.Controls.Add($script:txtCsvPath)
+
+$script:btnBrowse = New-BatchButton "Browse..." 405 25 88 27
+$grpCsv.Controls.Add($script:btnBrowse)
+
+$script:lblCsvStatus = New-BatchLabel "No CSV file loaded." 15 58 470 20 8 $script:muted
+$grpCsv.Controls.Add($script:lblCsvStatus)
+
+# -------------------- 2. BATCH DEFAULTS ---------------------
+
+$grpConfig = New-Object System.Windows.Forms.GroupBox
+$grpConfig.Text = "2. Starting Settings & Fallbacks"
+$grpConfig.Location = New-Object System.Drawing.Point(18, 185)
+$grpConfig.Size = New-Object System.Drawing.Size(508, 140)
+$form.Controls.Add($grpConfig)
+
+$grpConfig.Controls.Add((New-BatchLabel "Starting Galaxy ID:" 15 25 120 20))
+$script:txtStartID = New-BatchTextBox ([string]$script:defaultGalaxyID) 135 22 80
+$grpConfig.Controls.Add($script:txtStartID)
+
+$grpConfig.Controls.Add((New-BatchLabel "Start from Row #:" 250 25 110 20))
+$script:txtStartRow = New-BatchTextBox "1" 365 22 60
+$grpConfig.Controls.Add($script:txtStartRow)
+
+$grpConfig.Controls.Add((New-BatchLabel "Default Nickname:" 15 58 120 20))
+$script:txtDefNickname = New-BatchTextBox $script:defaultNickname 135 55 100
+$grpConfig.Controls.Add($script:txtDefNickname)
+
+$grpConfig.Controls.Add((New-BatchLabel "Default Down Keys:" 250 58 115 20))
+$script:txtDefDownKeys = New-BatchTextBox ([string]$script:defaultDownKeyCount) 365 55 60
+$grpConfig.Controls.Add($script:txtDefDownKeys)
+
+$grpConfig.Controls.Add((New-BatchLabel "Pacing Profile:" 15 95 100 20))
+$script:cboPacing = New-Object System.Windows.Forms.ComboBox
+$script:cboPacing.Location = New-Object System.Drawing.Point(115, 92)
+$script:cboPacing.Size = New-Object System.Drawing.Size(140, 25)
+$script:cboPacing.DropDownStyle = "DropDownList"
+[void]$script:cboPacing.Items.AddRange(@("Safe (~10s / acct)", "Standard (~7s / acct)", "Fast (~4s / acct)"))
+$script:cboPacing.SelectedIndex = 0
+$grpConfig.Controls.Add($script:cboPacing)
+
+$script:chkExpiration = New-Object System.Windows.Forms.CheckBox
+$script:chkExpiration.Text = "Expire:"
+$script:chkExpiration.Location = New-Object System.Drawing.Point(270, 93)
+$script:chkExpiration.Size = New-Object System.Drawing.Size(65, 22)
+$script:chkExpiration.Checked = $script:expireAccount
+$grpConfig.Controls.Add($script:chkExpiration)
+
+$script:dtpExpire = New-Object System.Windows.Forms.DateTimePicker
+$script:dtpExpire.Location = New-Object System.Drawing.Point(340, 92)
+$script:dtpExpire.Size = New-Object System.Drawing.Size(150, 25)
+$script:dtpExpire.Format = [System.Windows.Forms.DateTimePickerFormat]::Short
+$script:dtpExpire.Value = Get-Date -Year 2026 -Month 12 -Day 31
+$grpConfig.Controls.Add($script:dtpExpire)
+
+# -------------------- 3. MOUSE COORDINATES ------------------
+
+$grpMouse = New-Object System.Windows.Forms.GroupBox
+$grpMouse.Text = "3. Screen Positioning"
+$grpMouse.Location = New-Object System.Drawing.Point(18, 335)
+$grpMouse.Size = New-Object System.Drawing.Size(508, 65)
+$form.Controls.Add($grpMouse)
+
+$script:chkAutoMouse = New-Object System.Windows.Forms.CheckBox
+$script:chkAutoMouse.Text = "Auto-Click Username"
+$script:chkAutoMouse.Location = New-Object System.Drawing.Point(15, 26)
+$script:chkAutoMouse.Size = New-Object System.Drawing.Size(150, 22)
+$script:chkAutoMouse.Checked = $script:useMouseCoordinates
+$grpMouse.Controls.Add($script:chkAutoMouse)
+
+$grpMouse.Controls.Add((New-BatchLabel "X:" 175 27 20 20 8 $script:muted))
+$script:txtMouseX = New-BatchTextBox ([string]$script:usernameX) 195 24 50
+$grpMouse.Controls.Add($script:txtMouseX)
+
+$grpMouse.Controls.Add((New-BatchLabel "Y:" 255 27 20 20 8 $script:muted))
+$script:txtMouseY = New-BatchTextBox ([string]$script:usernameY) 275 24 50
+$grpMouse.Controls.Add($script:txtMouseY)
+
+$script:btnPick = New-BatchButton "Pick" 350 23 65 26
+$grpMouse.Controls.Add($script:btnPick)
+
+$script:btnTest = New-BatchButton "Test" 425 23 65 26
+$grpMouse.Controls.Add($script:btnTest)
+
+# -------------------- 4. PROGRESS & PREVIEW -----------------
+
+$grpProgress = New-Object System.Windows.Forms.GroupBox
+$grpProgress.Text = "4. Batch Progress & Preview"
+$grpProgress.Location = New-Object System.Drawing.Point(18, 410)
+$grpProgress.Size = New-Object System.Drawing.Size(508, 340)
+$form.Controls.Add($grpProgress)
+
+$script:progressBar = New-Object System.Windows.Forms.ProgressBar
+$script:progressBar.Location = New-Object System.Drawing.Point(15, 25)
+$script:progressBar.Size = New-Object System.Drawing.Size(475, 20)
+$grpProgress.Controls.Add($script:progressBar)
+
+$script:lblBatchStatus = New-BatchLabel "Ready. Load a CSV to begin." 15 52 475 22 9 $script:ink
+$grpProgress.Controls.Add($script:lblBatchStatus)
+
+$script:grid = New-Object System.Windows.Forms.DataGridView
+$script:grid.Location = New-Object System.Drawing.Point(15, 80)
+$script:grid.Size = New-Object System.Drawing.Size(475, 245)
+$script:grid.ReadOnly = $true
+$script:grid.AllowUserToAddRows = $false
+$script:grid.AllowUserToDeleteRows = $false
+$script:grid.RowHeadersVisible = $false
+$script:grid.SelectionMode = "FullRowSelect"
+$script:grid.BackgroundColor = [System.Drawing.Color]::White
+$script:grid.AutoSizeColumnsMode = [System.Windows.Forms.DataGridViewAutoSizeColumnsMode]::Fill
+
+[void]$script:grid.Columns.Add("Row", "Row")
+$script:grid.Columns[0].FillWeight = 35
+[void]$script:grid.Columns.Add("EmpID", "Emp ID")
+$script:grid.Columns[1].FillWeight = 55
+[void]$script:grid.Columns.Add("FullName", "Full Name")
+$script:grid.Columns[2].FillWeight = 90
+[void]$script:grid.Columns.Add("GalaxyID", "Galaxy ID")
+$script:grid.Columns[3].FillWeight = 55
+[void]$script:grid.Columns.Add("Status", "Status")
+$script:grid.Columns[4].FillWeight = 65
+
+$grpProgress.Controls.Add($script:grid)
+
+# -------------------- 5. CONTROL BUTTONS --------------------
+
+$script:btnStart = New-Object System.Windows.Forms.Button
+$script:btnStart.Text = "START BATCH AUTOMATION"
+$script:btnStart.Location = New-Object System.Drawing.Point(18, 760)
+$script:btnStart.Size = New-Object System.Drawing.Size(340, 42)
+$script:btnStart.BackColor = $script:green
+$script:btnStart.ForeColor = [System.Drawing.Color]::White
+$script:btnStart.FlatStyle = "Flat"
+$script:btnStart.Font = New-Object System.Drawing.Font("Segoe UI Semibold", 10)
+$script:btnStart.Enabled = $false
+$form.Controls.Add($script:btnStart)
+
+$script:btnPause = New-Object System.Windows.Forms.Button
+$script:btnPause.Text = "PAUSE (ESC)"
+$script:btnPause.Location = New-Object System.Drawing.Point(370, 760)
+$script:btnPause.Size = New-Object System.Drawing.Size(156, 42)
+$script:btnPause.FlatStyle = "Flat"
+$script:btnPause.Font = New-Object System.Drawing.Font("Segoe UI Semibold", 9)
+$script:btnPause.Enabled = $false
+$form.Controls.Add($script:btnPause)
+
+# -------------------- EVENT LOGIC ---------------------------
+
+# Browse CSV
+$script:btnBrowse.Add_Click({
+    $ofd = New-Object System.Windows.Forms.OpenFileDialog
+    $ofd.Filter = "CSV Files (*.csv)|*.csv|All Files (*.*)|*.*"
+    $ofd.Title = "Select Employee Import CSV"
+
+    if ($ofd.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        $script:txtCsvPath.Text = $ofd.FileName
+        try {
+            $rawRecords = Import-Csv -Path $ofd.FileName
+            if ($rawRecords.Count -eq 0) {
+                [System.Windows.Forms.MessageBox]::Show("The selected CSV contains no records.", "Empty File") | Out-Null
+                return
+            }
+
+            # Check mandatory columns
+            $properties = $rawRecords[0].PSObject.Properties.Name
+            if (-not ($properties -contains "EmployeeID" -and $properties -contains "FullName")) {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "CSV must contain 'EmployeeID' and 'FullName' headers.`r`nOptional headers: Nickname, PrivilegeDownKeys, ExpirationDate",
+                    "Invalid CSV Format",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Error
+                ) | Out-Null
+                return
+            }
+
+            $script:csvRecords = $rawRecords
+            $script:grid.Rows.Clear()
+
+            for ($i = 0; $i -lt $rawRecords.Count; $i++) {
+                $row = $rawRecords[$i]
+                [void]$script:grid.Rows.Add(
+                    ($i + 1),
+                    $row.EmployeeID,
+                    $row.FullName,
+                    "---",
+                    "Pending"
+                )
+            }
+
+            $script:lblCsvStatus.Text = "Loaded $($rawRecords.Count) rows ready to provision."
+            $script:lblBatchStatus.Text = "Loaded $($rawRecords.Count) rows. Verify starting ID and click Start."
+            $script:btnStart.Enabled = $true
+            $script:progressBar.Maximum = $rawRecords.Count
+            $script:progressBar.Value = 0
+
+            # Generate Audit Log Path
+            $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+            $csvDir = [System.IO.Path]::GetDirectoryName($ofd.FileName)
+            $script:auditLogPath = Join-Path $csvDir "Galaxy_Batch_Results_$timestamp.csv"
+        }
+        catch {
+            [System.Windows.Forms.MessageBox]::Show("Error reading CSV: $($_.Exception.Message)", "File Error") | Out-Null
+        }
+    }
+})
+
+# Coordinate Pick & Test
+$script:btnPick.Add_Click({
+    [System.Windows.Forms.MessageBox]::Show(
+        "Hover mouse over Galaxy Username field and press Enter/Space.",
+        "Pick Position"
+    ) | Out-Null
+    $pt = [System.Windows.Forms.Cursor]::Position
+    $script:txtMouseX.Text = [string]$pt.X
+    $script:txtMouseY.Text = [string]$pt.Y
+})
+
+$script:btnTest.Add_Click({
+    $x = 0; $y = 0
+    if ([int]::TryParse($script:txtMouseX.Text, [ref]$x) -and [int]::TryParse($script:txtMouseY.Text, [ref]$y)) {
+        try { [GalaxyBatchMouse]::Click($x, $y) } catch {}
+    }
+})
+
+# Pause Toggle
+$script:btnPause.Add_Click({
+    if ($script:isRunning) {
+        $script:isPaused = $true
+        $script:lblBatchStatus.Text = "Pausing after current record..."
+        $script:btnPause.Enabled = $false
+    }
+})
+
+# -------------------- AUTOMATION ENGINE ---------------------
+
+$script:btnStart.Add_Click({
+    if ($script:isRunning) { return }
+
+    # Parse Starting Values
+    $startGalaxyID = 0
+    $startRow = 0
+    $defDownKeys = 0
+
+    if (-not [int]::TryParse($script:txtStartID.Text, [ref]$startGalaxyID) -or
+        -not [int]::TryParse($script:txtStartRow.Text, [ref]$startRow) -or
+        -not [int]::TryParse($script:txtDefDownKeys.Text, [ref]$defDownKeys)) {
+        [System.Windows.Forms.MessageBox]::Show("Galaxy ID, Start Row, and Default Down Keys must be valid numbers.", "Validation Error") | Out-Null
+        return
+    }
+
+    if ($startRow -lt 1 -or $startRow -gt $script:csvRecords.Count) {
+        [System.Windows.Forms.MessageBox]::Show("Start Row must be between 1 and $($script:csvRecords.Count).", "Invalid Row") | Out-Null
+        return
+    }
+
+    $mouseX = 0; $mouseY = 0
+    if ($script:chkAutoMouse.Checked) {
+        if (-not [int]::TryParse($script:txtMouseX.Text, [ref]$mouseX) -or -not [int]::TryParse($script:txtMouseY.Text, [ref]$mouseY)) {
+            [System.Windows.Forms.MessageBox]::Show("Coordinates must be valid numbers.", "Coordinate Error") | Out-Null
+            return
+        }
+    }
+
+    # Pacing Multipliers
+    $pacingMultiplier = 1.6
+    switch ($script:cboPacing.SelectedIndex) {
+        1 { $pacingMultiplier = 1.0 }
+        2 { $pacingMultiplier = 0.6 }
+    }
+
+    $script:isRunning = $true
+    $script:isPaused = $false
+    $script:btnStart.Enabled = $false
+    $script:btnPause.Enabled = $true
+    $script:btnBrowse.Enabled = $false
+
+    $currentAccountNum = $startGalaxyID
+    $startIndex = $startRow - 1
+
+    try {
+        $wshell = New-Object -ComObject WScript.Shell
+
+        # Initial countdown to focus Galaxy
+        for ($c = 3; $c -ge 1; $c--) {
+            $script:lblBatchStatus.Text = "Focusing Galaxy in $c seconds... (Press ESC to cancel)"
+            Invoke-PacedDelay 1000 1.0
+        }
+
+        # Initialize or append audit log header
+        if (-not (Test-Path $script:auditLogPath)) {
+            "Row,EmployeeID,FullName,GalaxyID,Status,Timestamp" | Out-File -FilePath $script:auditLogPath -Encoding utf8
+        }
+
+        for ($i = $startIndex; $i -lt $script:csvRecords.Count; $i++) {
+
+            if ($script:isPaused) {
+                $script:txtStartRow.Text = [string]($i + 1)
+                $script:txtStartID.Text = [string]$currentAccountNum
+                $script:lblBatchStatus.Text = "PAUSED at Row $($i + 1). Click Resume to continue."
+                break
+            }
+
+            $rec = $script:csvRecords[$i]
+            $gridRow = $script:grid.Rows[$i]
+            $script:grid.ClearSelection()
+            $gridRow.Selected = $true
+            $gridRow.Cells["Status"].Value = "In Progress..."
+            $gridRow.DefaultCellStyle.BackColor = [System.Drawing.Color]::LemonChiffon
+
+            $script:progressBar.Value = $i + 1
+            $script:lblBatchStatus.Text = "Processing Row $($i + 1) of $($script:csvRecords.Count): $($rec.FullName)"
+
+            # Resolve per-row overrides or fallbacks
+            $empID    = $rec.EmployeeID.Trim()
+            $fullName = $rec.FullName.Trim()
+
+            $nickname = if ($rec.PSObject.Properties.Name -contains "Nickname" -and -not [string]::IsNullOrWhiteSpace($rec.Nickname)) {
+                $rec.Nickname.Trim()
+            } else {
+                $script:txtDefNickname.Text
+            }
+            if ([string]::IsNullOrWhiteSpace($nickname)) { $nickname = "NickName" }
+
+            $downKeys = $defDownKeys
+            if ($rec.PSObject.Properties.Name -contains "PrivilegeDownKeys" -and -not [string]::IsNullOrWhiteSpace($rec.PrivilegeDownKeys)) {
+                [int]::TryParse($rec.PrivilegeDownKeys, [ref]$downKeys) | Out-Null
+            }
+
+            # 1. Bring Galaxy to foreground and click Username
+            $null = $wshell.AppActivate("Galaxy")
+            Invoke-PacedDelay 300 $pacingMultiplier
+
+            if ($script:chkAutoMouse.Checked) {
+                [GalaxyBatchMouse]::Click($mouseX, $mouseY)
+                Invoke-PacedDelay 250 $pacingMultiplier
+            }
+
+            # 2. Open New Account Modal: Alt+N
+            $wshell.SendKeys("%n")
+            Invoke-PacedDelay 450 $pacingMultiplier
+
+            # 3. Employee ID
+            $wshell.SendKeys($empID)
+            Invoke-PacedDelay 200 $pacingMultiplier
+
+            # 4. Advance to Privilege dropdown
+            $wshell.SendKeys("{TAB}{ENTER}")
+            Invoke-PacedDelay 450 $pacingMultiplier
+
+            # 5. Down-arrow selections
+            for ($k = 1; $k -le $downKeys; $k++) {
+                $wshell.SendKeys("{DOWN}")
+                Invoke-PacedDelay 50 $pacingMultiplier
+            }
+            $wshell.SendKeys("{ENTER}")
+            Invoke-PacedDelay 200 $pacingMultiplier
+
+            # 6. Galaxy Account Number
+            $wshell.SendKeys("{TAB}")
+            $wshell.SendKeys([string]$currentAccountNum)
+            Invoke-PacedDelay 200 $pacingMultiplier
+
+            # 7. Full Name
+            $wshell.SendKeys("{TAB}{TAB}")
+            $wshell.SendKeys($fullName)
+            Invoke-PacedDelay 200 $pacingMultiplier
+
+            # 8. Nickname
+            $wshell.SendKeys("{TAB}")
+            $wshell.SendKeys($nickname)
+            Invoke-PacedDelay 200 $pacingMultiplier
+
+            # 9. Advance to second page
+            for ($k = 1; $k -le 7; $k++) { $wshell.SendKeys("{TAB}") }
+            $wshell.SendKeys("{ENTER}")
+            Invoke-PacedDelay 600 $pacingMultiplier
+
+            # 10. Password fields
+            for ($k = 1; $k -le 12; $k++) { $wshell.SendKeys("{TAB}") }
+            $wshell.SendKeys("{DOWN}{TAB}")
+            Invoke-PacedDelay 200 $pacingMultiplier
+
+            $wshell.SendKeys($script:defaultPassword)
+            Invoke-PacedDelay 200 $pacingMultiplier
+
+            # 11. Expiration Settings
+            for ($k = 1; $k -le 5; $k++) { $wshell.SendKeys("{TAB}") }
+            Invoke-PacedDelay 200 $pacingMultiplier
+
+            if ($script:chkExpiration.Checked) {
+                $rowDate = $script:dtpExpire.Value
+                if ($rec.PSObject.Properties.Name -contains "ExpirationDate" -and -not [string]::IsNullOrWhiteSpace($rec.ExpirationDate)) {
+                    $parsedDate = Get-Date
+                    if ([DateTime]::TryParse($rec.ExpirationDate, [ref]$parsedDate)) {
+                        $rowDate = $parsedDate
+                    }
+                }
+
+                $expM = $rowDate.ToString("MM")
+                $expD = $rowDate.ToString("dd")
+                $expY = $rowDate.ToString("yy")
+
+                $wshell.SendKeys("{ }")
+                $wshell.SendKeys("{TAB}")
+                Invoke-PacedDelay 40 $pacingMultiplier
+
+                $wshell.SendKeys($expM)
+                Invoke-PacedDelay 40 $pacingMultiplier
+                $wshell.SendKeys("{RIGHT}")
+                Invoke-PacedDelay 40 $pacingMultiplier
+                $wshell.SendKeys($expD)
+                Invoke-PacedDelay 40 $pacingMultiplier
+                $wshell.SendKeys("{RIGHT}")
+                Invoke-PacedDelay 40 $pacingMultiplier
+                $wshell.SendKeys($expY)
+                Invoke-PacedDelay 40 $pacingMultiplier
+
+                $wshell.SendKeys("{TAB}{TAB}")
+                $wshell.SendKeys($script:loginsAfterExpire)
+                Invoke-PacedDelay 40 $pacingMultiplier
+
+                for ($k = 1; $k -le 12; $k++) { $wshell.SendKeys("{TAB}") }
+            }
+
+            # 12. Commit / Save record
+            $wshell.SendKeys("{ENTER}")
+
+            # Database write cooldown (crucial for batch desync prevention)
+            Invoke-PacedDelay 1800 $pacingMultiplier
+
+            # Mark row completed
+            $gridRow.Cells["GalaxyID"].Value = [string]$currentAccountNum
+            $gridRow.Cells["Status"].Value = "Created"
+            $gridRow.DefaultCellStyle.BackColor = [System.Drawing.Color]::Honeydew
+
+            # Log to Audit File
+            $ts = Get-Date -Format "HH:mm:ss"
+            "$($i + 1),$empID,`"$fullName`",$currentAccountNum,Success,$ts" | Out-File -FilePath $script:auditLogPath -Append -Encoding utf8
+
+            $currentAccountNum++
+            $script:txtStartID.Text = [string]$currentAccountNum
+            $script:txtStartRow.Text = [string]($i + 2)
+        }
+
+        if (-not $script:isPaused) {
+            $script:lblBatchStatus.Text = "Batch Completed! All accounts provisioned."
+            [System.Windows.Forms.MessageBox]::Show(
+                "Batch processing complete!`r`nResults saved to:`r`n$($script:auditLogPath)",
+                "Batch Complete",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Information
+            ) | Out-Null
+        }
+    }
+    catch {
+        $script:lblBatchStatus.Text = "Batch Halted: $($_.Exception.Message)"
+        if ($i -lt $script:csvRecords.Count) {
+            $script:grid.Rows[$i].Cells["Status"].Value = "Halted"
+            $script:grid.Rows[$i].DefaultCellStyle.BackColor = [System.Drawing.Color]::MistyRose
+            $script:txtStartRow.Text = [string]($i + 1)
+            $script:txtStartID.Text = [string]$currentAccountNum
+        }
+
+        [System.Windows.Forms.MessageBox]::Show(
+            "Batch execution stopped:`r`n$($_.Exception.Message)`r`n`r`nVerify Galaxy state before resuming from Row $($script:txtStartRow.Text).",
+            "Batch Halted",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        ) | Out-Null
+    }
+    finally {
+        $script:isRunning = $false
+        $script:btnStart.Enabled = $true
+        $script:btnStart.Text = if ($script:isPaused) { "RESUME BATCH" } else { "START BATCH AUTOMATION" }
+        $script:btnPause.Enabled = $false
+        $script:btnBrowse.Enabled = $true
+    }
+})
+
+# -------------------- SHOW WINDOW ---------------------------
+
+[void]$form.ShowDialog()
