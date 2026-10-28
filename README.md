@@ -1,134 +1,147 @@
 # Galaxy Account Manager — PowerShell Automation
 
-A PowerShell-based Windows Forms GUI developed to automate account creation in Galaxy. The tool streamlines a repetitive account provisioning workflow, reduces manual data entry, and improves consistency.
+A PowerShell automation tool designed to make creating accounts in Galaxy fast, simple, and error-free. Instead of manually clicking and typing repetitive account details into Galaxy, this tool fills them in automatically. 
+
+You can choose between two versions depending on your preference:
+- **GUI Version:** A user-friendly visual window with mouse support, an interactive date picker, and coordinate capture tools.
+- **Terminal Version:** A lightweight text-based prompt that runs directly inside PowerShell.
+
+---
 
 ## Overview
 
-I identified an opportunity to improve the efficiency of creating accounts within Galaxy. The existing process required manually navigating the application and entering account information, typically taking 45–60 seconds per account, with it taking longer if mistakes are made.
+Creating accounts manually in Galaxy typically takes 45–60 seconds per person, and even longer if a typo happens. 
 
-I developed this PowerShell automation tool to simplify the process through a graphical interface and automated keyboard and mouse interactions. This helps reduce manual data-entry errors.
+This tool automates the keyboard presses and mouse clicks required by Galaxy, cutting data entry time down significantly and making sure every account is configured consistently.
 
 ## Results
 
-- Reduced account creation time from 45–60 seconds to 15–20 seconds per account.
-- Reduced typical processing time by approximately 55–75%.
-- Saved approximately 25–45 seconds per account under typical conditions.
-- Reduced repetitive manual typing, helping minimize data-entry errors and inconsistencies.
-- Standardized the account creation workflow through configurable settings.
-- Added an existing-account check and password-reset workflow.
-- Implemented input validation, status messages, and error handling.
+- **Saves Time:** Drops account creation time from 45–60 seconds down to 15–20 seconds per account.
+- **Faster Workflow:** Reduces overall processing time by approximately 55–75%.
+- **Eliminates Typos:** Prevents manual mistakes when typing employee names, IDs, privileges, and default flags.
+- **Dual Options:** Offers both a graphical window and a quick terminal console version.
 
-## Features
+---
 
-- **Graphical User Interface (GUI):** Enter employee information and configure automation settings through a Windows Forms interface.
-- **Automated Account Creation:** Uses PowerShell keyboard automation to navigate Galaxy and populate account fields.
-- **Configurable Account Numbering:** Automatically increments the Galaxy account number after each completed sequence.
-- **Customizable Nickname:** Configure the nickname or prefix used during account creation.
-- **Privilege Selection:** Configure the number of downward key presses used to select a privilege option.
-- **Existing-Account Check:** Supports checking whether an intended account already exists before proceeding.
-- **Password-Reset Workflow:** Provides a separate keyboard automation sequence for the existing-account workflow.
-- **Account Expiration:** Optionally enables account expiration and specifies an expiration date.
-- **Automatic Mouse Positioning:** Positions the cursor over the username field using configurable screen coordinates.
-- **Mouse Coordinate Testing:** Includes a test button to help configure the username field's screen position.
-- **Input Validation:** Checks required employee information, numeric fields, coordinates, and expiration dates.
-- **Status Feedback:** Displays progress, completion messages, and errors through the GUI.
-- **Terminal Version:** If you don't like using a GUI, you can use the Terminal Version
+## GUI vs. Terminal Version Comparison
 
-## Technologies Used
+| Feature | GUI Version | Terminal (CLI) Version |
+| :--- | :---: | :---: |
+| **Automated Account Creation** | ✔ | ✔ |
+| **Existing-Account & Password Reset Mode** | ✔ | ✔ |
+| **Auto-Incrementing Account Number** | ✔ | ✔ |
+| **Account Expiration Support** | ✔ | ✔ |
+| **Automatic Mouse Movement & Clicking** | ✔ | ❌ |
+| **Live Screen Coordinate Picker ("Pick" button)** | ✔ | ❌ |
+| **Visual Calendar Date Picker** | ✔ | ❌ |
+| **Emergency Stop Key (`ESC` to cancel)** | ✔ | ❌ |
+| **Press "Enter" to Run Immediately** | ✔ | ❌ |
+| **In-Console Settings Menu (Type `CHANGE`)** | ❌ | ✔ |
 
-- PowerShell
-- Windows Forms (`System.Windows.Forms`)
-- .NET Drawing (`System.Drawing`)
-- Windows Script Host (`WScript.Shell`)
-- Windows API integration for mouse positioning and clicking
-- Git and GitHub
+---
 
 ## Requirements
 
-- Windows operating system.
-- Windows PowerShell with support for Windows Forms and the Windows Script Host COM object.
-- Access to the Galaxy application.
+- A computer running **Windows 10, 11, or Windows Server**.
+- **Windows PowerShell** (pre-installed on Windows).
+- Access to the **Galaxy** application on the same computer.
+
+---
 
 ## Getting Started
 
-### 1. Have a ShortCut
+### Method 1: Create a Desktop Shortcut (Recommended)
 
-1. Copy and paste the GUI or Terminal code into notepad
-2. Change Default Setting to what's best for you
-3. Go to the top left and click save
-4. Name the File Name: GalaxyAccount.ps1 (.ps1 is needed)
-5. Save as type which is just under that to All files(*.*)
-6. Go to Windows Home screen and right click anywhere and click new and then shortcut
-7. Click browse and find the .ps1 file (it should be in document folder)
-8. Enter this at the start " powershell.exe -NoExit -ExecutionPolicy Bypass -File " (in front of C drive, also make sure there is one space in between)
+This gives you a desktop icon you can double-click anytime you need to create accounts.
 
-### 2. If you don't want a shortcut
+1. Open **Notepad**.
+2. Copy the code for the **GUI** version (or **Terminal** version) and paste it into Notepad.
+3. Review the default settings at the top of the file (such as your starting account number or nickname) and change them if needed.
+4. Go to the top-left corner of Notepad and click **File > Save As...**
+5. Change **Save as type** (under the file name) to **All Files (*.*)**.
+6. Name the file `GalaxyAccount.ps1` (make sure it ends with `.ps1`) and save it into your **Documents** folder.
+7. Go to your Windows desktop, **right-click** on any empty space, hover over **New**, and select **Shortcut**.
+8. In the box that says *"Type the location of the item"*, paste the following:
 
-1. Copy and paste the GUI or Terminal code into notepad
-2. Whenever you want to use it, copy the code from note and insert into powershell
+   **For the GUI Version:**
+   ```text
+   powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "%USERPROFILE%\Documents\GalaxyAccount.ps1"
+   ```
 
-### 3. Configure and Run the Automation
+   **For the Terminal Version:**
+   ```text
+   powershell.exe -NoExit -ExecutionPolicy Bypass -File "%USERPROFILE%\Documents\GalaxyAccount.ps1"
+   ```
 
-1. Enter the employee ID and full name.
-2. Confirm the next Galaxy account number.
-3. Review the nickname and privilege settings.
-4. Configure account expiration if required.
-5. Verify the mouse coordinates if automatic positioning is enabled.
-6. Confirm Galaxy is open and in the expected state.
-7. Select **RUN ACCOUNT AUTOMATION**.
-8. Verify the resulting account directly in Galaxy.
+9. Click **Next**, name your shortcut (e.g., `Galaxy Account Manager`), and click **Finish**.
 
-> **Important:** Avoid interacting with other windows while the automation is running, as keyboard input is sent to the active application.
+---
+
+### Method 2: Run Directly Without a Shortcut
+
+If you prefer not to create a desktop shortcut:
+
+1. Open **Notepad**, paste the script code, and keep it saved or open.
+2. Open **PowerShell** from your Windows Start menu.
+3. Copy the script code from Notepad, paste it directly into the PowerShell window, and press **Enter**.
+
+---
+
+## How to Run and Use the Tool
+
+### Using the GUI Version
+1. Open the **Galaxy** application and leave it open in the background.
+2. Double-click your desktop shortcut to launch the tool.
+3. **Set your mouse position (First time only):**
+   - Click the **Pick** button next to coordinates.
+   - Hover your mouse cursor over the Galaxy **Username** box and press **Enter** to save the position.
+   - Click **Test** to make sure the mouse clicks the correct spot.
+4. Enter the **Employee ID** and **Employee Full Name**.
+5. Check that the **Next Galaxy Account Number** is correct.
+6. Select an **Expiration Date** on the calendar if account expiration is needed.
+7. Click **RUN ACCOUNT AUTOMATION** (or just press **Enter** on your keyboard).
+8. The tool will switch to Galaxy and complete the fields. Once the status shows it is finished, verify the account in Galaxy.
+
+> **Emergency Stop:** If Galaxy freezes or the wrong window is clicked, press the **Escape (`ESC`)** key on your keyboard to immediately halt the automation.
+
+---
+
+### Using the Terminal Version
+1. Open the **Galaxy** application.
+2. Launch the terminal script.
+3. Type your starting Galaxy account number when prompted and press **Enter**.
+4. Choose whether to turn on the "Check if Account Exists" feature (`Yes` or `No`).
+5. Type the **Employee ID** and press **Enter**.
+   - *Tip:* You can type `CHANGE` here to update your settings, or `EXIT` to close the tool.
+6. Type the employee's **First and Last Name** and press **Enter**.
+7. Click your mouse into the Galaxy **Username** field during the 3-second countdown timer.
+8. The automation will enter the information and immediately prepare for the next employee.
+
+---
 
 ## Configuration and Default Settings
 
-The following values are hardcoded near the beginning of the script. Review and change them to match your environment before use.
+These default values are set near the top of the script code. You can edit them in Notepad before saving:
 
 | Setting | Default Value | Description |
 |---|---|---|
-| Starting Galaxy Account Number | `1` | Initial account number displayed in the GUI. |
-| Nickname | `NickName` | Default nickname or prefix used during account creation. |
-| Privilege (Down Keys) | `1` | Number of downward key presses used to select a privilege option. |
-| Existing-Account Check | `false` | Determines whether the existing-account/password-reset workflow is enabled by default. |
-| Default Password | NormalPassword11! | Password configured in the source for standard account creation. |
-| Reset Password | ResetPassword11! | Password configured in the source for the password-reset workflow. |
-| Logins After Expiration | `1` | Value entered into the corresponding Galaxy field during account creation. |
-| Account Expiration | `true` | Enables account expiration by default. |
-| Expiration Month | `12` | Default expiration month. |
-| Expiration Day | `31` | Default expiration day. |
-| Expiration Year | `26` | Default expiration year, interpreted as 2026 during validation. |
-| Username X Coordinate | `500` | Horizontal screen coordinate used for mouse positioning. |
-| Username Y Coordinate | `500` | Vertical screen coordinate used for mouse positioning. |
-| Automatic Mouse Positioning | `true` | Enables automatic cursor positioning and a shorter handoff delay. |
+| **Starting Galaxy Account Number** | `1` | The starting account number for your shift or batch. |
+| **Nickname** | `NickName` | The default prefix or nickname used in the account name field. |
+| **Privilege (Down Keys)** | `1` | Number of times the script presses the down arrow to select the privilege level. |
+| **Existing-Account Check** | `false` | When enabled, checks if an account already exists before creating a new one. |
+| **Default Password** | `NormalPassword11!` | The standard password assigned to new accounts. |
+| **Reset Password** | `ResetPassword11!` | The password used when running the password reset sequence. |
+| **Logins After Expiration** | `1` | The number entered into Galaxy for logins allowed after expiration. |
+| **Account Expiration** | `true` | Turns account expiration on or off by default. |
+| **Username Coordinates (X / Y)** | `1400` / `260` | Screen coordinates used by the GUI to click the username box. |
+| **Automatic Mouse Positioning** | `true` | When enabled, automatically clicks the field rather than waiting for you to click. |
 
-### Important Configuration Notes
+> **Security Note:** Replace the default sample passwords in the script with approved temporary credentials. Never share or upload files containing real company passwords.
 
-- **Account Number:** Set the starting number to the next appropriate account number for your environment. Verify it in Galaxy before running the automation.
-- **Nickname:** Update the default nickname to match your organization's naming conventions.
-- **Privilege Selection:** Adjust the number of downward key presses to match the privilege options and their order in your Galaxy installation.
-- **Passwords:** The original source contains hardcoded password values. Replace them with an approved secure credential-handling approach before using or distributing the script. Never publish real credentials.
-- **Expiration Settings:** Confirm the expiration date and account policy with your administrator. Disable expiration if it is not appropriate for the account being created.
-- **Mouse Coordinates:** The default coordinates are environment-specific. Use the coordinate test button to position the cursor over the username field and adjust the X and Y values as necessary.
-- **Timing:** The script uses delays between keyboard actions to allow Galaxy to respond. Different machines and application response times may require adjustments.
+---
 
-## How It Works
+## Limitations and Things to Know
 
-The automation follows the existing Galaxy keyboard workflow rather than interacting with a documented Galaxy API.
-
-1. The user enters the employee ID and full name.
-2. The script validates the required information and configuration fields.
-3. If enabled, the script positions the mouse over the username field.
-4. The script switches to the Galaxy workflow and optionally checks whether the intended account already exists.
-5. Depending on the selected workflow, it enters account information or performs the configured password-reset sequence.
-6. During account creation, it enters the account number, employee details, nickname, password, expiration settings, and related values through keyboard navigation.
-7. The script updates the account-number field and displays a completion status.
-8. The user verifies the resulting account directly in Galaxy.
-
-## Limitations and Considerations
-
-- **Interface-Dependent Automation:** The workflow relies on keyboard navigation, tab order, menu ordering, and potentially fixed mouse coordinates. Changes to the Galaxy interface may cause the automation to enter information into the wrong fields.
-- **Active-Window Dependency:** Keyboard input is sent to the active application. Switching windows during execution can disrupt the workflow.
-- **No Independent Save Verification:** The script does not independently confirm that the account was successfully saved.
-- **Manual Verification Required:** A completion message indicates that the automation sequence finished, not that every field was saved correctly.
-- **Error Recovery:** If an error interrupts the sequence, inspect Galaxy before retrying to avoid duplicate or unintended actions.
-- **Environment-Specific Behavior:** The script was developed for a particular Galaxy workflow and may require adjustments for other installations.
+- **Keep Hands Off While Running:** The script types by simulating keyboard presses. Avoid clicking, typing, or switching windows while the automation is actively running.
+- **Screen Layout Changes:** The tool relies on standard keyboard tabs and key sequences. If the layout or menus inside Galaxy change, the script's key sequences may need to be updated.
+- **Always Verify:** The script indicates when all keystrokes have finished sending, but it does not check Galaxy's internal database. Always verify the saved account directly in Galaxy.
