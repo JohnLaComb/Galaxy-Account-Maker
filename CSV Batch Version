@@ -27,7 +27,6 @@ $script:csvRecords = @()
 $script:isRunning = $false
 $script:isPaused = $false
 $script:currentRowIndex = 0
-$script:auditLogPath = ""
 
 # Styling
 $script:navy  = [System.Drawing.Color]::FromArgb(23, 37, 84)
@@ -348,11 +347,6 @@ $script:btnBrowse.Add_Click({
             $script:btnStart.Enabled = $true
             $script:progressBar.Maximum = $rawRecords.Count
             $script:progressBar.Value = 0
-
-            # Generate Audit Log Path
-            $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-            $csvDir = [System.IO.Path]::GetDirectoryName($ofd.FileName)
-            $script:auditLogPath = Join-Path $csvDir "Galaxy_Batch_Results_$timestamp.csv"
         }
         catch {
             [System.Windows.Forms.MessageBox]::Show("Error reading CSV: $($_.Exception.Message)", "File Error") | Out-Null
@@ -440,11 +434,6 @@ $script:btnStart.Add_Click({
         for ($c = 3; $c -ge 1; $c--) {
             $script:lblBatchStatus.Text = "Focusing Galaxy in $c seconds... (Press ESC to cancel)"
             Invoke-PacedDelay 1000 1.0
-        }
-
-        # Initialize or append audit log header
-        if (-not (Test-Path $script:auditLogPath)) {
-            "Row,EmployeeID,FullName,GalaxyID,Status,Timestamp" | Out-File -FilePath $script:auditLogPath -Encoding utf8
         }
 
         for ($i = $startIndex; $i -lt $script:csvRecords.Count; $i++) {
@@ -560,6 +549,8 @@ $script:btnStart.Add_Click({
                 $wshell.SendKeys("{TAB}")
                 Invoke-PacedDelay 40 $pacingMultiplier
 
+                $expM = $rowDate.ToString("MM")
+                Invoke-PacedDelay 40 $pacingMultiplier
                 $wshell.SendKeys($expM)
                 Invoke-PacedDelay 40 $pacingMultiplier
                 $wshell.SendKeys("{RIGHT}")
@@ -589,10 +580,6 @@ $script:btnStart.Add_Click({
             $gridRow.Cells["Status"].Value = "Created"
             $gridRow.DefaultCellStyle.BackColor = [System.Drawing.Color]::Honeydew
 
-            # Log to Audit File
-            $ts = Get-Date -Format "HH:mm:ss"
-            "$($i + 1),$empID,`"$fullName`",$currentAccountNum,Success,$ts" | Out-File -FilePath $script:auditLogPath -Append -Encoding utf8
-
             $currentAccountNum++
             $script:txtStartID.Text = [string]$currentAccountNum
             $script:txtStartRow.Text = [string]($i + 2)
@@ -601,7 +588,7 @@ $script:btnStart.Add_Click({
         if (-not $script:isPaused) {
             $script:lblBatchStatus.Text = "Batch Completed! All accounts provisioned."
             [System.Windows.Forms.MessageBox]::Show(
-                "Batch processing complete!`r`nResults saved to:`r`n$($script:auditLogPath)",
+                "Batch processing complete! All accounts have been provisioned.",
                 "Batch Complete",
                 [System.Windows.Forms.MessageBoxButtons]::OK,
                 [System.Windows.Forms.MessageBoxIcon]::Information
@@ -636,3 +623,4 @@ $script:btnStart.Add_Click({
 # -------------------- SHOW WINDOW ---------------------------
 
 [void]$form.ShowDialog()
+
