@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Cosmos Identity Nexus</title>
+    <title>GALAXY</title>
     <style>
         /* =========================================================
            RADICAL REDESIGN: SPLIT-PANE MODERN LAYOUT
@@ -142,7 +142,7 @@
 
     <!-- MAIN SCREEN -->
     <div id="main-screen">
-        <div class="toolbar">COSMOS // Identity Manager</div>
+        <div class="toolbar">GALAXY sandbox</div>
         <div class="filter-section">
             <div class="filter-group">
                 <div class="form-row"><label>Username</label><input type="text" id="search-username" style="width: 100%;"></div>
