@@ -134,9 +134,7 @@ If you prefer not to create a desktop shortcut:
 
 ## Testing Sandbox 
 
-To test your scripts safely without modifying production data or requiring a live Galaxy installation, use the included local testing sandbox:
+To test the scripts safely without modifying production data or requiring a live Galaxy installation, use the included local testing sandbox:
+(SANDBOX performs similarly to the real app for account making)
 
-1. Place `index.html` and `app.py` in the same directory.
-2. Install the required Python wrapper library:
-   ```bash
-   pip install pywebview
+1. Copy and paste code from HTML APP into any HTML compiler like https://onecompiler.com/html
